@@ -30,182 +30,53 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.dineshprabha.cameraxapp.presentation.CameraPreview
 import com.dineshprabha.cameraxapp.ui.theme.CameraXAppTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!hasRequiredPermissions()) {
-            ActivityCompat.requestPermissions(this, CAMERAX_PERMISSIONS, 0)
+        if (!arePermissionsGranted()){
+            ActivityCompat.requestPermissions(this, CAMERA_PERMISSIONS, 100)
         }
-
         setContent {
             CameraXAppTheme {
-                val scope = rememberCoroutineScope()
-                val scaffoldState = rememberBottomSheetScaffoldState()
 
-                val viewmodel = viewModel<MainViewModel>()
-                val bitmaps by viewmodel.bitmap.collectAsState()
-
-                val controller = remember {
-                    LifecycleCameraController(applicationContext).apply {
-                        setEnabledUseCases(
-                            CameraController.IMAGE_CAPTURE or CameraController.VIDEO_CAPTURE
-                        )
-                    }
-                }
-
-                BottomSheetScaffold(
-                    scaffoldState = scaffoldState,
-                    sheetPeekHeight = 0.dp,
-                    sheetContent = {
-                        PhotoBottomSheetContent(
-                            bitmaps = bitmaps,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        )
-
-                    }
-                ) { padding ->
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                    ) {
-                        CameraPreview(
-                            controller = controller,
-                            modifier = Modifier.fillMaxSize()
-                        )
-
-                        IconButton(
-                            onClick = {
-                                controller.cameraSelector =
-                                    if (controller.cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA){
-                                        CameraSelector.DEFAULT_FRONT_CAMERA
-                                    }else CameraSelector.DEFAULT_BACK_CAMERA
-                            },
-                            modifier = Modifier.offset(16.dp, 16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Cameraswitch,
-                                contentDescription = "Switch Camera"
-                            )
-
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceAround
-                        ) {
-                            IconButton(onClick = {
-                                scope.launch {
-                                    scaffoldState.bottomSheetState.expand()
-                                }
-                            }) {
-                                Icon(imageVector = Icons.Default.Photo, contentDescription = "Open gallery")
-
-                            }
-
-                            IconButton(onClick = {
-                                takePhoto(
-                                    controller = controller,
-                                    onPhotoTaken = viewmodel::onTakePhoto
-                                )
-                            }) {
-                                Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = "Take Photo")
-
-                            }
-
-                            IconButton(onClick = {
-                                takePhoto(
-                                    controller = controller,
-                                    onPhotoTaken = viewmodel::onVideoCapture
-                                )
-                            }) {
-                                Icon(imageVector = Icons.Default.Videocam, contentDescription = "Capture Video")
-
-                            }
-
-                        }
-                    }
-
-                }
-
+            CameraPreview(activity = this)
             }
         }
     }
 
-    private fun takePhoto(
-        controller: LifecycleCameraController,
-        onPhotoTaken : (Bitmap) -> Unit
-    ){
-        controller.takePicture(
-            ContextCompat.getMainExecutor(applicationContext),
-            object : OnImageCapturedCallback(){
-                override fun onCaptureSuccess(image: ImageProxy) {
-                    super.onCaptureSuccess(image)
-                    val matrix = Matrix().apply {
-                        postRotate(image.imageInfo.rotationDegrees.toFloat())
-                        postScale(-1f, 1f)
-                    }
-
-                    val rotatedBitmap = Bitmap.createBitmap(
-                        image.toBitmap(),
-                        0,
-                        0,
-                        image.width,
-                        image.height,
-                        matrix,
-                        true
-                    )
-                    onPhotoTaken(rotatedBitmap)
-                }
-
-                override fun onError(exception: ImageCaptureException) {
-                    super.onError(exception)
-                    Log.e("Camera", "Couldn't take photo:", exception)
-                }
-            }
-        )
-    }
-
-    private fun hasRequiredPermissions(): Boolean {
-        return CAMERAX_PERMISSIONS.all {
+    fun arePermissionsGranted(): Boolean{
+        return CAMERA_PERMISSIONS.all { permissions ->
             ContextCompat.checkSelfPermission(
-                applicationContext, it
+                applicationContext, permissions
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
 
-    companion object {
-        private val CAMERAX_PERMISSIONS = arrayOf(
+    companion object{
+        val CAMERA_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
         )
     }
+
 }
 
